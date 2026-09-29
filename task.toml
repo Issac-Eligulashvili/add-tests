@@ -1,0 +1,47 @@
+[metadata]
+task_id = "7555865b-7a0e-439c-9bf0-ff704bcad5cf"
+task_display_name = "add-tests"
+description = "Add automated tests covering the Laravel sports-camp application's organize-teams workflow, from roster intake through team assignment, so that a suspected bug in the age- and teammate-request-aware team balancing logic is reproduced by a failing test."
+category = "programming"
+tags = ["php", "testing", "debugging", "algorithms", "database"]
+[verifier]
+timeout_sec = 900.0
+network_mode = "no-network"
+
+[agent]
+# Wall-clock limit for one agent run (2 hours). A trial that exceeds it is
+# recorded as a timeout and cannot be submitted. Raise this if your task
+# genuinely needs longer - before you run, since changing it afterwards means
+# rerunning both models.
+timeout_sec = 7200.0
+network_mode = "allowlist"
+allowed_hosts = ["app-llmproxy.dataannotation.tech"]
+
+[environment]
+# Keep setup public so Harbor can install the agent harnesses. Harbor replaces
+# this baseline with the proxy-only policy above while agent.run() is active,
+# then disables network entirely while the verifier runs.
+network_mode = "public"
+build_timeout_sec = 900.0
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+
+# --- Capture the model patch (agent's diff vs the v0.1.0-init checkpoint) ------------
+# Harbor collects /logs/artifacts AFTER the agent runs but BEFORE the verifier. A collect
+# hook runs in the right window (after the agent, before artifact download); the [[artifacts]]
+# entry downloads the single file to artifacts/patch.diff.
+# `service` = the service's name in docker-compose.yaml
+#
+# The diff is written to /tmp, NOT /logs/artifacts. Harbor already collects that
+# directory wholesale, so writing there too made two collection rules target
+# overlapping paths - Harbor warned "Artifact sources overlap ... the rest are
+# skipped" on every single run and shipped the file twice. Keeping the scratch
+# copy outside the collected directory leaves exactly one artifact and no warning.
+[[verifier.collect]]
+service = "main"
+command = "git config --global --add safe.directory /app; git -C /app add -A; git -C /app diff v0.1.0-init > /tmp/patch.diff 2>/dev/null; true"
+
+[[artifacts]]
+source = "/tmp/patch.diff"
+destination = "patch.diff"

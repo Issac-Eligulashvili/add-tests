@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ $sport->Sport_Name }} Camps - {{ config('app.name') }}</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+
+<body>
+
+@include('partials.header', [
+    'title' => $sport->Sport_Name . ' Camps',
+    'subtitle' => 'Choose from our available ' . strtolower($sport->Sport_Name) . ' camps below',
+])
+
+<div class="container">
+    <!-- Navigation -->
+    <div class="sport-navigation">
+        <a href="{{ route('sport.show', $sport->Sport_ID) }}" class="nav-link">{{ $sport->Sport_Name }} Home</a>
+        <a href="{{ route('sport.camps', $sport->Sport_ID) }}" class="nav-link active">Register for Camp!</a>
+        <a href="{{ route('sport.about', $sport->Sport_ID) }}" class="nav-link">About Us</a>
+        <a href="{{ route('sport.faqs', $sport->Sport_ID) }}" class="nav-link">FAQs</a>
+    </div>
+
+    @if (count($campCards) > 0)
+        <div class="camps-section">
+            <h2>Available {{ $sport->Sport_Name }} Camps</h2>
+            <div class="sort-controls">
+                <label>Sort by:</label>
+                <div class="sort-buttons">
+                    <button class="sort-btn active" data-sort="registration">Registration Deadline</button>
+                    <button class="sort-btn" data-sort="price">Price</button>
+                    <button class="sort-btn" data-sort="discount">Discount Amount</button>
+                    <button class="sort-btn" data-sort="discount-expires">Discount Expiration</button>
+                </div>
+                <button class="sort-direction" data-direction="asc" title="Toggle sort direction">
+                    <span class="arrow">↑</span>
+                </button>
+            </div>
+        </div>
+        <div class="accordion-list">
+            @foreach ($campCards as $camp)
+                @php
+                    $final_price_calc = $camp['has_discount'] ? $camp['price'] - $camp['discount_amount'] : $camp['price'];
+                    $discount_amount = $camp['has_discount'] ? $camp['discount_amount'] : 0;
+                    $discount_expires = $camp['has_discount'] ? $camp['discount_expires'] : '';
+                @endphp
+                <div class="accordion-item" 
+                     data-price="{{ $final_price_calc }}" 
+                     data-reg-date="{{ $camp['registration_due'] }}"
+                     data-discount-amount="{{ $discount_amount }}"
+                     data-discount-expires="{{ $discount_expires }}">
+                    <div class="accordion-item-wrapper">
+                        <button type="button" class="accordion-header" aria-expanded="false">
+                            <span class="accordion-title">{{ $camp['title'] }}</span>
+                            <span class="accordion-meta">
+                                ${{ number_format($camp['price'], 2) }} · {{ $camp['start_date'] }} – {{ $camp['end_date'] }}
+                            </span>
+                            @if ($camp['has_discount'])
+                                <span class="accordion-discount">Save ${{ number_format($camp['discount_amount'], 2) }} - Register by {{ $camp['discount_expires'] }}</span>
+                            @endif
+                            <span class="accordion-icon">▾</span>
+                        </button>
+                        <a href="{{ route('registration.form', ['camp' => $camp['id']]) }}" class="register-btn-header" onclick="event.stopPropagation()">
+                            Register
+                        </a>
+                    </div>
+                    <div class="accordion-body is-collapsed">
+                        <div class="accordion-details">
+                            <p class="camp-dates">
+                                <strong>Who:</strong> {{ $camp['gender'] }} · Ages {{ $camp['age_range'] }}
+                            </p>
+                            <p class="camp-description">
+                                <strong>What:</strong> {{ $camp['description'] }}
+                            </p>
+                            <p class="camp-dates">
+                                <strong>When:</strong> {{ $camp['start_date'] }} - {{ $camp['end_date'] }}
+                            </p>
+                            <p class="camp-location">
+                                <strong>Where:</strong> {{ $camp['location_name'] }}<br>
+                                <span class="location-address">{{ $camp['street_address'] }}, {{ $camp['city'] }},
+                                    {{ $camp['state'] }} {{ $camp['zip_code'] }}</span>
+                            </p>
+                            @if ($camp['has_discount'])
+                                <p class="discount-info">
+                                    <strong>Early Bird Discount:</strong> Save ${{ number_format($camp['discount_amount'], 2) }}
+                                    if you register by {{ $camp['discount_expires'] }}
+                                </p>
+                                <p class="camp-price original-price">
+                                    <strong>Original Price:</strong> <span
+                                        class="strikethrough">${{ number_format($camp['price'], 2) }}</span>
+                                </p>
+                                @php
+                                    $final_price = $camp['price'] - $camp['discount_amount'];
+                                @endphp
+                                <p class="camp-price discounted-price">
+                                    <strong>Discounted Price:</strong> <span
+                                        class="discount-highlight">${{ number_format($final_price, 2) }}</span>
+                                </p>
+                            @else
+                                <p class="camp-price">
+                                    <strong>How much:</strong> ${{ number_format($camp['price'], 2) }}
+                                </p>
+                            @endif
+                            <p class="registration-due">
+                                <strong>Register By:</strong> {{ $camp['registration_due'] }}
+                            </p>
+                        </div>
+                        <a href="{{ route('registration.form', ['camp' => $camp['id']]) }}" class="card-button">
+                            Register Now
+                        </a>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @else
+        <div class="no-camps-message">
+            <h3>No camps currently available</h3>
+            <p>There are no {{ strtolower($sport->Sport_Name) }} camps accepting registrations at this time.</p>
+            <a href="{{ route('home') }}" class="card-button">← Back to Home</a>
+        </div>
+    @endif
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Accordion functionality
+        document.querySelectorAll('.accordion-header').forEach((button) => {
+            button.addEventListener('click', (e) => {
+                const item = button.closest('.accordion-item');
+                const body = item ? item.querySelector('.accordion-body') : null;
+                if (!body) return;
+                const isCollapsed = body.classList.toggle('is-collapsed');
+                button.setAttribute('aria-expanded', String(!isCollapsed));
+            });
+        });
+
+        // Sorting functionality
+        const sortButtons = document.querySelectorAll('.sort-btn');
+        const sortDirection = document.querySelector('.sort-direction');
+        const accordionList = document.querySelector('.accordion-list');
+        let currentSort = 'registration';
+        let currentDirection = 'asc';
+
+        const performSort = () => {
+            if (!accordionList) return;
+            
+            const items = Array.from(accordionList.querySelectorAll('.accordion-item'));
+            
+            items.sort((a, b) => {
+                let aValue, bValue;
+                
+                switch(currentSort) {
+                    case 'price':
+                        aValue = parseFloat(a.dataset.price) || 0;
+                        bValue = parseFloat(b.dataset.price) || 0;
+                        break;
+                    case 'registration':
+                        aValue = new Date(a.dataset.regDate);
+                        bValue = new Date(b.dataset.regDate);
+                        break;
+                    case 'discount':
+                        aValue = parseFloat(a.dataset.discountAmount) || 0;
+                        bValue = parseFloat(b.dataset.discountAmount) || 0;
+                        break;
+                    case 'discount-expires':
+                        aValue = a.dataset.discountExpires ? new Date(a.dataset.discountExpires) : new Date('9999-12-31');
+                        bValue = b.dataset.discountExpires ? new Date(b.dataset.discountExpires) : new Date('9999-12-31');
+                        break;
+                    default:
+                        return 0;
+                }
+                
+                if (currentDirection === 'asc') {
+                    return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+                } else {
+                    return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+                }
+            });
+            
+            items.forEach(item => accordionList.appendChild(item));
+        };
+
+        // Category button clicks
+        sortButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                sortButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                currentSort = button.dataset.sort;
+                performSort();
+            });
+        });
+
+        // Direction toggle
+        if (sortDirection) {
+            sortDirection.addEventListener('click', () => {
+                currentDirection = currentDirection === 'asc' ? 'desc' : 'asc';
+                sortDirection.dataset.direction = currentDirection;
+                performSort();
+            });
+        }
+
+        // Initial sort
+        performSort();
+    });
+</script>
+
+@include('partials.footer')
+</body>
+
+</html>
